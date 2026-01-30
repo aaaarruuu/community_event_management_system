@@ -68,7 +68,7 @@ public class LoginScreen extends JFrame {
         JPanel loginPanel = new JPanel();
         loginPanel.setLayout(null);
         loginPanel.setBackground(Color.WHITE);
-        loginPanel.setBounds(275, 160, 350, 340);
+        loginPanel.setBounds(275, 160, 350, 365);
         loginPanel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(52, 152, 219), 3),
                 BorderFactory.createEmptyBorder(20, 20, 20, 20)
@@ -143,6 +143,24 @@ public class LoginScreen extends JFrame {
         resetButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
         resetButton.addActionListener(e -> resetFields());
         loginPanel.add(resetButton);
+
+        // Register Link/Button
+        JLabel registerLabel = new JLabel("Don't have an account?", SwingConstants.CENTER);
+        registerLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        registerLabel.setForeground(new Color(127, 140, 141));
+        registerLabel.setBounds(80, 315, 140, 20);
+        loginPanel.add(registerLabel);
+
+        JButton registerButton = new JButton("Register Now");
+        registerButton.setFont(new Font("Arial", Font.BOLD, 12));
+        registerButton.setForeground(new Color(41, 128, 185));
+        registerButton.setBackground(Color.WHITE);
+        registerButton.setBounds(215, 313, 110, 25);
+        registerButton.setFocusPainted(false);
+        registerButton.setBorderPainted(false);
+        registerButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        registerButton.addActionListener(e -> openRegistration());
+        loginPanel.add(registerButton);
 
         mainPanel.add(loginPanel);
 
@@ -245,6 +263,11 @@ public class LoginScreen extends JFrame {
         passwordField.setText("");
         rememberCheckBox.setSelected(false);
         usernameField.requestFocus();
+    }
+
+    private void openRegistration() {
+        dispose();
+        new RegistrationScreen();
     }
 
     public static void main(String[] args) {
