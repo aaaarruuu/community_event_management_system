@@ -41,8 +41,8 @@ public class LoginScreen extends JFrame {
                 g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
                 int w = getWidth();
                 int h = getHeight();
-                Color color1 = new Color(41, 128, 185);
-                Color color2 = new Color(109, 213, 250);
+                Color color1 = new Color(28, 223, 112);
+                Color color2 = new Color(5, 174, 234);
                 GradientPaint gp = new GradientPaint(0, 0, color1, 0, h, color2);
                 g2d.setPaint(gp);
                 g2d.fillRect(0, 0, w, h);
@@ -53,21 +53,21 @@ public class LoginScreen extends JFrame {
         // Header Label with Icon
         JLabel headerLabel = new JLabel("🏘️ COMMUNITY EVENT SYSTEM", SwingConstants.CENTER);
         headerLabel.setFont(new Font("Arial", Font.BOLD, 32));
-        headerLabel.setForeground(Color.WHITE);
+        headerLabel.setForeground(Color.yellow);
         headerLabel.setBounds(150, 40, 600, 50);
         mainPanel.add(headerLabel);
 
         // Subtitle
         JLabel subtitleLabel = new JLabel("Managing Communities, Connecting People", SwingConstants.CENTER);
         subtitleLabel.setFont(new Font("Arial", Font.ITALIC, 16));
-        subtitleLabel.setForeground(new Color(255, 255, 255, 200));
+        subtitleLabel.setForeground(new Color(204, 63, 63, 255));
         subtitleLabel.setBounds(150, 95, 600, 30);
         mainPanel.add(subtitleLabel);
 
         // Login Panel
         JPanel loginPanel = new JPanel();
         loginPanel.setLayout(null);
-        loginPanel.setBackground(Color.WHITE);
+        loginPanel.setBackground(Color.white);
         loginPanel.setBounds(275, 160, 350, 365);
         loginPanel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(52, 152, 219), 3),

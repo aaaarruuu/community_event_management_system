@@ -91,7 +91,7 @@ public class IssuePanel extends JPanel {
         tablePanel.setBackground(Color.WHITE);
         tablePanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        String[] columns = {"ID", "Category", "Location", "Status", "Priority", "Date Reported", "Reporter"};
+        String[] columns = {"ID", "Category", "Location", "Status", "Priority", "Date Reported", "Reporter", "Access"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -108,7 +108,7 @@ public class IssuePanel extends JPanel {
         issueTable.getTableHeader().setBackground(new Color(231, 76, 60));
         issueTable.getTableHeader().setForeground(Color.WHITE);
 
-        // Custom cell renderer for status colors
+        // Custom cell renderer for status colors and access
         issueTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value,
@@ -116,21 +116,45 @@ public class IssuePanel extends JPanel {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
 
                 if (!isSelected) {
+                    String access = (String) table.getValueAt(row, 7); // Access column
                     String status = (String) table.getValueAt(row, 3);
-                    switch(status) {
-                        case "Pending":
-                            c.setBackground(new Color(255, 243, 224));
-                            break;
-                        case "In-Progress":
-                            c.setBackground(new Color(232, 245, 233));
-                            break;
-                        case "Completed":
-                            c.setBackground(new Color(225, 245, 254));
-                            break;
-                        default:
-                            c.setBackground(Color.WHITE);
+
+                    // Color by access first, then by status
+                    if (access != null && access.equals("🔓 Can Edit")) {
+                        c.setBackground(new Color(232, 245, 233)); // Light green
+                    } else if (access != null && access.equals("🔒 View Only")) {
+                        c.setBackground(new Color(255, 243, 224)); // Light orange
+                    } else {
+                        // Fallback to status-based coloring
+                        switch(status) {
+                            case "Pending":
+                                c.setBackground(new Color(255, 243, 224));
+                                break;
+                            case "In-Progress":
+                                c.setBackground(new Color(232, 245, 233));
+                                break;
+                            case "Completed":
+                                c.setBackground(new Color(225, 245, 254));
+                                break;
+                            default:
+                                c.setBackground(Color.WHITE);
+                        }
                     }
                 }
+
+                // Special styling for Access column
+                if (column == 7) {
+                    setFont(getFont().deriveFont(Font.BOLD));
+                    String access = (String) value;
+                    if (!isSelected) {
+                        if (access != null && access.equals("🔓 Can Edit")) {
+                            setForeground(new Color(39, 174, 96));
+                        } else if (access != null && access.equals("🔒 View Only")) {
+                            setForeground(new Color(243, 156, 18));
+                        }
+                    }
+                }
+
                 return c;
             }
         });
@@ -138,6 +162,34 @@ public class IssuePanel extends JPanel {
         JScrollPane scrollPane = new JScrollPane(issueTable);
         scrollPane.setBorder(BorderFactory.createLineBorder(new Color(189, 195, 199), 2));
         tablePanel.add(scrollPane, BorderLayout.CENTER);
+
+        // Add legend panel
+        JPanel legendPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 5));
+        legendPanel.setOpaque(false);
+        legendPanel.setBorder(BorderFactory.createEmptyBorder(5, 0, 0, 0));
+
+        JLabel legendLabel = new JLabel("Legend:");
+        legendLabel.setFont(new Font("Arial", Font.BOLD, 12));
+        legendLabel.setForeground(new Color(52, 73, 94));
+        legendPanel.add(legendLabel);
+
+        JLabel canEditLabel = new JLabel("🔓 Can Edit (Your issues or Admin)");
+        canEditLabel.setFont(new Font("Arial", Font.PLAIN, 11));
+        canEditLabel.setForeground(new Color(39, 174, 96));
+        canEditLabel.setOpaque(true);
+        canEditLabel.setBackground(new Color(232, 245, 233));
+        canEditLabel.setBorder(BorderFactory.createEmptyBorder(2, 8, 2, 8));
+        legendPanel.add(canEditLabel);
+
+        JLabel viewOnlyLabel = new JLabel("🔒 View Only (Others' issues)");
+        viewOnlyLabel.setFont(new Font("Arial", Font.PLAIN, 11));
+        viewOnlyLabel.setForeground(new Color(243, 156, 18));
+        viewOnlyLabel.setOpaque(true);
+        viewOnlyLabel.setBackground(new Color(255, 243, 224));
+        viewOnlyLabel.setBorder(BorderFactory.createEmptyBorder(2, 8, 2, 8));
+        legendPanel.add(viewOnlyLabel);
+
+        tablePanel.add(legendPanel, BorderLayout.SOUTH);
 
         add(tablePanel, BorderLayout.CENTER);
     }
@@ -176,14 +228,28 @@ public class IssuePanel extends JPanel {
             ResultSet rs = pstmt.executeQuery();
 
             while (rs.next()) {
+                int issueId = rs.getInt("issue_id");
+                int reporterId = rs.getInt("reporter_id");
+                String reporterName = rs.getString("username");
+                if (reporterName == null) reporterName = "Unknown";
+
+                // Determine access level
+                String access;
+                if (currentUser.getRole().equals("Admin") || reporterId == currentUser.getUserId()) {
+                    access = "🔓 Can Edit";
+                } else {
+                    access = "🔒 View Only";
+                }
+
                 Object[] row = {
-                        rs.getInt("issue_id"),
+                        issueId,
                         rs.getString("category"),
                         rs.getString("location"),
                         rs.getString("status"),
                         rs.getString("priority"),
                         rs.getTimestamp("date_reported"),
-                        rs.getString("username")
+                        reporterName,
+                        access
                 };
                 tableModel.addRow(row);
             }
@@ -386,6 +452,16 @@ public class IssuePanel extends JPanel {
 
         int issueId = (int) tableModel.getValueAt(selectedRow, 0);
 
+        // Security Check: Only Admin or Issue Reporter can delete
+        if (!canModifyIssue(issueId)) {
+            JOptionPane.showMessageDialog(this,
+                    "🔒 Access Denied!\n\nYou can only delete issues that you reported.\n" +
+                            "Admins can delete all issues.",
+                    "Permission Error",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
         int choice = JOptionPane.showConfirmDialog(this,
                 "Are you sure you want to delete this issue?",
                 "Confirm Deletion",
@@ -418,5 +494,40 @@ public class IssuePanel extends JPanel {
                         JOptionPane.ERROR_MESSAGE);
             }
         }
+    }
+
+    /**
+     * Security method: Check if current user can modify the issue
+     * @param issueId The ID of the issue to check
+     * @return true if user is Admin or the issue reporter
+     */
+    private boolean canModifyIssue(int issueId) {
+        // Admins can modify all issues
+        if (currentUser.getRole().equals("Admin")) {
+            return true;
+        }
+
+        // Check if current user is the reporter
+        try {
+            Connection conn = DBConnection.getConnection();
+            String query = "SELECT reporter_id FROM Issues WHERE issue_id = ?";
+            PreparedStatement pstmt = conn.prepareStatement(query);
+            pstmt.setInt(1, issueId);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                int reporterId = rs.getInt("reporter_id");
+                rs.close();
+                pstmt.close();
+                return reporterId == currentUser.getUserId();
+            }
+
+            rs.close();
+            pstmt.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return false;
     }
 }

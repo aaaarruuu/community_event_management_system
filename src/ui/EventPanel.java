@@ -72,7 +72,7 @@ public class EventPanel extends JPanel {
         tablePanel.setBackground(Color.WHITE);
         tablePanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        String[] columns = {"ID", "Title", "Date", "Time", "Venue", "Organizer", "Description"};
+        String[] columns = {"ID", "Title", "Date", "Time", "Venue", "Organizer", "Description", "Created By", "Access"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -89,18 +89,85 @@ public class EventPanel extends JPanel {
         eventTable.getTableHeader().setBackground(new Color(52, 152, 219));
         eventTable.getTableHeader().setForeground(Color.WHITE);
 
+        // Custom renderer for ownership visualization
+        eventTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value,
+                                                           boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
+                if (!isSelected) {
+                    String access = (String) table.getValueAt(row, 8); // Access column
+                    if (access != null) {
+                        if (access.equals("🔓 Can Edit")) {
+                            c.setBackground(new Color(232, 245, 233)); // Light green
+                        } else if (access.equals("🔒 View Only")) {
+                            c.setBackground(new Color(255, 243, 224)); // Light orange
+                        } else {
+                            c.setBackground(Color.WHITE);
+                        }
+                    }
+                }
+
+                // Special styling for Access column
+                if (column == 8) {
+                    setFont(getFont().deriveFont(Font.BOLD));
+                    String access = (String) value;
+                    if (!isSelected) {
+                        if (access != null && access.equals("🔓 Can Edit")) {
+                            setForeground(new Color(39, 174, 96));
+                        } else if (access != null && access.equals("🔒 View Only")) {
+                            setForeground(new Color(243, 156, 18));
+                        }
+                    }
+                }
+
+                return c;
+            }
+        });
+
         // Set column widths
         eventTable.getColumnModel().getColumn(0).setPreferredWidth(50);
-        eventTable.getColumnModel().getColumn(1).setPreferredWidth(200);
+        eventTable.getColumnModel().getColumn(1).setPreferredWidth(180);
         eventTable.getColumnModel().getColumn(2).setPreferredWidth(100);
         eventTable.getColumnModel().getColumn(3).setPreferredWidth(80);
-        eventTable.getColumnModel().getColumn(4).setPreferredWidth(150);
-        eventTable.getColumnModel().getColumn(5).setPreferredWidth(120);
-        eventTable.getColumnModel().getColumn(6).setPreferredWidth(250);
+        eventTable.getColumnModel().getColumn(4).setPreferredWidth(130);
+        eventTable.getColumnModel().getColumn(5).setPreferredWidth(110);
+        eventTable.getColumnModel().getColumn(6).setPreferredWidth(200);
+        eventTable.getColumnModel().getColumn(7).setPreferredWidth(100);
+        eventTable.getColumnModel().getColumn(8).setPreferredWidth(90);
 
         JScrollPane scrollPane = new JScrollPane(eventTable);
         scrollPane.setBorder(BorderFactory.createLineBorder(new Color(189, 195, 199), 2));
         tablePanel.add(scrollPane, BorderLayout.CENTER);
+
+        // Add legend panel
+        JPanel legendPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 5));
+        legendPanel.setOpaque(false);
+        legendPanel.setBorder(BorderFactory.createEmptyBorder(5, 0, 0, 0));
+
+        JLabel legendLabel = new JLabel("Legend:");
+        legendLabel.setFont(new Font("Arial", Font.BOLD, 12));
+        legendLabel.setForeground(new Color(52, 73, 94));
+        legendPanel.add(legendLabel);
+
+        JLabel canEditLabel = new JLabel("🔓 Can Edit (Your events or Admin)");
+        canEditLabel.setFont(new Font("Arial", Font.PLAIN, 11));
+        canEditLabel.setForeground(new Color(39, 174, 96));
+        canEditLabel.setOpaque(true);
+        canEditLabel.setBackground(new Color(232, 245, 233));
+        canEditLabel.setBorder(BorderFactory.createEmptyBorder(2, 8, 2, 8));
+        legendPanel.add(canEditLabel);
+
+        JLabel viewOnlyLabel = new JLabel("🔒 View Only (Others' events)");
+        viewOnlyLabel.setFont(new Font("Arial", Font.PLAIN, 11));
+        viewOnlyLabel.setForeground(new Color(243, 156, 18));
+        viewOnlyLabel.setOpaque(true);
+        viewOnlyLabel.setBackground(new Color(255, 243, 224));
+        viewOnlyLabel.setBorder(BorderFactory.createEmptyBorder(2, 8, 2, 8));
+        legendPanel.add(viewOnlyLabel);
+
+        tablePanel.add(legendPanel, BorderLayout.SOUTH);
 
         add(tablePanel, BorderLayout.CENTER);
     }
@@ -122,19 +189,36 @@ public class EventPanel extends JPanel {
 
         try {
             Connection conn = DBConnection.getConnection();
-            String query = "SELECT * FROM Events ORDER BY event_date DESC, event_time DESC";
+            String query = "SELECT e.*, u.username as creator_name FROM Events e " +
+                    "LEFT JOIN Users u ON e.created_by = u.user_id " +
+                    "ORDER BY e.event_date DESC, e.event_time DESC";
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(query);
 
             while (rs.next()) {
+                int eventId = rs.getInt("event_id");
+                int createdBy = rs.getInt("created_by");
+                String creatorName = rs.getString("creator_name");
+                if (creatorName == null) creatorName = "Unknown";
+
+                // Determine access level
+                String access;
+                if (currentUser.getRole().equals("Admin") || createdBy == currentUser.getUserId()) {
+                    access = "🔓 Can Edit";
+                } else {
+                    access = "🔒 View Only";
+                }
+
                 Object[] row = {
-                        rs.getInt("event_id"),
+                        eventId,
                         rs.getString("title"),
                         rs.getDate("event_date"),
                         rs.getTime("event_time"),
                         rs.getString("venue"),
                         rs.getString("organizer"),
-                        rs.getString("description")
+                        rs.getString("description"),
+                        creatorName,
+                        access
                 };
                 tableModel.addRow(row);
             }
@@ -232,6 +316,16 @@ public class EventPanel extends JPanel {
 
         int eventId = (int) tableModel.getValueAt(selectedRow, 0);
 
+        // Security Check: Only Admin or Event Creator can edit
+        if (!canModifyEvent(eventId)) {
+            JOptionPane.showMessageDialog(this,
+                    "🔒 Access Denied!\n\nYou can only edit events that you created.\n" +
+                            "Admins can edit all events.",
+                    "Permission Error",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
         EventDialog dialog = new EventDialog(
                 (Frame) SwingUtilities.getWindowAncestor(this),
                 "Edit Event",
@@ -257,6 +351,16 @@ public class EventPanel extends JPanel {
 
         int eventId = (int) tableModel.getValueAt(selectedRow, 0);
         String eventTitle = (String) tableModel.getValueAt(selectedRow, 1);
+
+        // Security Check: Only Admin or Event Creator can delete
+        if (!canModifyEvent(eventId)) {
+            JOptionPane.showMessageDialog(this,
+                    "🔒 Access Denied!\n\nYou can only delete events that you created.\n" +
+                            "Admins can delete all events.",
+                    "Permission Error",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
         int choice = JOptionPane.showConfirmDialog(this,
                 "Are you sure you want to delete event:\n" + eventTitle + "?",
@@ -290,5 +394,40 @@ public class EventPanel extends JPanel {
                         JOptionPane.ERROR_MESSAGE);
             }
         }
+    }
+
+    /**
+     * Security method: Check if current user can modify the event
+     * @param eventId The ID of the event to check
+     * @return true if user is Admin or the event creator
+     */
+    private boolean canModifyEvent(int eventId) {
+        // Admins can modify all events
+        if (currentUser.getRole().equals("Admin")) {
+            return true;
+        }
+
+        // Check if current user is the creator
+        try {
+            Connection conn = DBConnection.getConnection();
+            String query = "SELECT created_by FROM Events WHERE event_id = ?";
+            PreparedStatement pstmt = conn.prepareStatement(query);
+            pstmt.setInt(1, eventId);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                int creatorId = rs.getInt("created_by");
+                rs.close();
+                pstmt.close();
+                return creatorId == currentUser.getUserId();
+            }
+
+            rs.close();
+            pstmt.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return false;
     }
 }
