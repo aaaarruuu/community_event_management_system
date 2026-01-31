@@ -58,7 +58,7 @@ public class RegistrationScreen extends JFrame {
         // Subtitle
         JLabel subtitleLabel = new JLabel("Create your account to get started", SwingConstants.CENTER);
         subtitleLabel.setFont(new Font("Arial", Font.ITALIC, 16));
-        subtitleLabel.setForeground(new Color(255, 255, 255, 200));
+        subtitleLabel.setForeground(new Color(14, 86, 221, 255));
         subtitleLabel.setBounds(150, 85, 600, 30);
         mainPanel.add(subtitleLabel);
 
@@ -202,7 +202,7 @@ public class RegistrationScreen extends JFrame {
         cancelButton = new JButton("❌ CLEAR");
         cancelButton.setFont(new Font("Arial", Font.BOLD, 16));
         cancelButton.setForeground(Color.WHITE);
-        cancelButton.setBackground(new Color(149, 165, 166));
+        cancelButton.setBackground(new Color(241, 9, 40));
         cancelButton.setBounds(260, yPos, 210, 45);
         cancelButton.setFocusPainted(false);
         cancelButton.setBorderPainted(false);
