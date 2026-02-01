@@ -51,7 +51,7 @@ public class RegistrationScreen extends JFrame {
         // Header Label
         JLabel headerLabel = new JLabel("🏘️ JOIN OUR COMMUNITY", SwingConstants.CENTER);
         headerLabel.setFont(new Font("Arial", Font.BOLD, 32));
-        headerLabel.setForeground(Color.WHITE);
+        headerLabel.setForeground(Color.yellow);
         headerLabel.setBounds(150, 30, 600, 50);
         mainPanel.add(headerLabel);
 
@@ -93,7 +93,7 @@ public class RegistrationScreen extends JFrame {
         usernameField.setFont(new Font("Arial", Font.PLAIN, 14));
         usernameField.setBounds(30, yPos + 30, 440, 35);
         usernameField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(189, 195, 199), 2),
+                BorderFactory.createLineBorder(new Color(232, 218, 8), 2),
                 BorderFactory.createEmptyBorder(5, 10, 5, 10)
         ));
         registrationPanel.add(usernameField);
@@ -111,7 +111,7 @@ public class RegistrationScreen extends JFrame {
         passwordField.setFont(new Font("Arial", Font.PLAIN, 14));
         passwordField.setBounds(30, yPos + 30, 440, 35);
         passwordField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(189, 195, 199), 2),
+                BorderFactory.createLineBorder(new Color(232, 218, 8), 2),
                 BorderFactory.createEmptyBorder(5, 10, 5, 10)
         ));
         registrationPanel.add(passwordField);
@@ -129,7 +129,7 @@ public class RegistrationScreen extends JFrame {
         confirmPasswordField.setFont(new Font("Arial", Font.PLAIN, 14));
         confirmPasswordField.setBounds(30, yPos + 30, 440, 35);
         confirmPasswordField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(189, 195, 199), 2),
+                BorderFactory.createLineBorder(new Color(232, 218, 8), 2),
                 BorderFactory.createEmptyBorder(5, 10, 5, 10)
         ));
         registrationPanel.add(confirmPasswordField);
@@ -147,7 +147,7 @@ public class RegistrationScreen extends JFrame {
         contactField.setFont(new Font("Arial", Font.PLAIN, 14));
         contactField.setBounds(30, yPos + 30, 210, 35);
         contactField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(189, 195, 199), 2),
+                BorderFactory.createLineBorder(new Color(232, 218, 8), 2),
                 BorderFactory.createEmptyBorder(5, 10, 5, 10)
         ));
         registrationPanel.add(contactField);
@@ -179,7 +179,7 @@ public class RegistrationScreen extends JFrame {
         emailField.setFont(new Font("Arial", Font.PLAIN, 14));
         emailField.setBounds(30, yPos + 30, 440, 35);
         emailField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(189, 195, 199), 2),
+                BorderFactory.createLineBorder(new Color(232, 218, 8), 2),
                 BorderFactory.createEmptyBorder(5, 10, 5, 10)
         ));
         registrationPanel.add(emailField);
@@ -190,7 +190,7 @@ public class RegistrationScreen extends JFrame {
         registerButton = new JButton("✅ REGISTER");
         registerButton.setFont(new Font("Arial", Font.BOLD, 16));
         registerButton.setForeground(Color.WHITE);
-        registerButton.setBackground(new Color(46, 204, 113));
+        registerButton.setBackground(new Color(4, 248, 108));
         registerButton.setBounds(30, yPos, 210, 45);
         registerButton.setFocusPainted(false);
         registerButton.setBorderPainted(false);
@@ -233,7 +233,7 @@ public class RegistrationScreen extends JFrame {
 
         // Add hover effects
         addHoverEffect(registerButton, new Color(46, 204, 113), new Color(39, 174, 96));
-        addHoverEffect(cancelButton, new Color(149, 165, 166), new Color(127, 140, 141));
+        addHoverEffect(cancelButton, new Color(234, 11, 63), new Color(236, 11, 41));
         addHoverEffect(backToLoginButton, new Color(52, 152, 219), new Color(41, 128, 185));
 
         // Add Enter key listener for password confirmation
