@@ -1,0 +1,481 @@
+-- Drop existing tables if needed (use with caution in production!)
+-- DROP TABLE IF EXISTS event_feedback;
+-- DROP TABLE IF EXISTS amenity_bookings;
+-- DROP TABLE IF EXISTS amenities;
+-- DROP TABLE IF EXISTS poll_votes;
+-- DROP TABLE IF EXISTS polls;
+-- DROP TABLE IF EXISTS announcement_acknowledgments;
+-- DROP TABLE IF EXISTS announcements;
+
+-- ============================================================================
+-- ENHANCED EVENTS TABLE
+-- ============================================================================
+
+-- Add new columns to existing events table
+ALTER TABLE events
+ADD COLUMN IF NOT EXISTS registration_start DATE,
+ADD COLUMN IF NOT EXISTS registration_end DATE,
+ADD COLUMN IF NOT EXISTS allow_waitlist BOOLEAN DEFAULT TRUE,
+ADD COLUMN IF NOT EXISTS is_recurring BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS recurrence_type VARCHAR(20), -- DAILY, WEEKLY, MONTHLY
+ADD COLUMN IF NOT EXISTS recurrence_interval INT DEFAULT 1,
+ADD COLUMN IF NOT EXISTS recurrence_end_date DATE,
+ADD COLUMN IF NOT EXISTS parent_event_id INT,
+ADD COLUMN IF NOT EXISTS FOREIGN KEY (parent_event_id) REFERENCES events(event_id);
+
+-- ============================================================================
+-- EVENT FEEDBACK TABLE
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS event_feedback (
+    feedback_id INT PRIMARY KEY AUTO_INCREMENT,
+    event_id INT NOT NULL,
+    user_id INT NOT NULL,
+    rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    comment TEXT,
+    submitted_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_anonymous BOOLEAN DEFAULT FALSE,
+    verified BOOLEAN DEFAULT FALSE, -- Whether user actually attended
+    helpful_count INT DEFAULT 0,
+    aspect_ratings JSON, -- {"venue": 5, "organization": 4, "content": 5}
+
+    FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+
+    -- Prevent duplicate feedback from same user
+    UNIQUE KEY unique_feedback (event_id, user_id)
+);
+
+CREATE INDEX idx_event_feedback_event ON event_feedback(event_id);
+CREATE INDEX idx_event_feedback_rating ON event_feedback(rating);
+
+-- ============================================================================
+-- AMENITIES TABLE
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS amenities (
+    amenity_id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    category VARCHAR(50) NOT NULL, -- GYM, POOL, CLUBHOUSE, COURT, HALL, GARDEN
+    capacity INT DEFAULT 1,
+    cost_per_hour DECIMAL(10,2) DEFAULT 0.00,
+    operating_hours VARCHAR(50), -- e.g., "06:00-22:00"
+    requires_approval BOOLEAN DEFAULT FALSE,
+    minimum_booking_hours INT DEFAULT 1,
+    maximum_booking_hours INT DEFAULT 4,
+    amenity_rules TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    location VARCHAR(200),
+    photos JSON, -- Array of photo URLs
+    rating DECIMAL(3,2) DEFAULT 0.00,
+    booking_count INT DEFAULT 0,
+    created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_amenity_category (category),
+    INDEX idx_amenity_active (is_active)
+);
+
+-- ============================================================================
+-- AMENITY BOOKINGS TABLE
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS amenity_bookings (
+    booking_id INT PRIMARY KEY AUTO_INCREMENT,
+    amenity_id INT NOT NULL,
+    user_id INT NOT NULL,
+    booking_date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    duration_hours INT NOT NULL,
+    total_cost DECIMAL(10,2) DEFAULT 0.00,
+    status VARCHAR(20) DEFAULT 'PENDING', -- PENDING, CONFIRMED, CANCELLED, COMPLETED
+    purpose VARCHAR(200),
+    attendees INT DEFAULT 1,
+    special_requests TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    confirmed_at DATETIME,
+    cancelled_at DATETIME,
+    cancellation_reason TEXT,
+
+    -- Payment fields
+    is_paid BOOLEAN DEFAULT FALSE,
+    payment_method VARCHAR(50),
+    payment_transaction_id VARCHAR(100),
+    payment_date DATETIME,
+
+    FOREIGN KEY (amenity_id) REFERENCES amenities(amenity_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+
+    INDEX idx_booking_amenity (amenity_id),
+    INDEX idx_booking_user (user_id),
+    INDEX idx_booking_date (booking_date),
+    INDEX idx_booking_status (status),
+
+    -- Prevent double booking (same amenity, date, overlapping time)
+    CONSTRAINT check_no_overlap
+    UNIQUE KEY unique_booking_slot (amenity_id, booking_date, start_time, end_time)
+);
+
+-- ============================================================================
+-- POLLS TABLE
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS polls (
+    poll_id INT PRIMARY KEY AUTO_INCREMENT,
+    question VARCHAR(500) NOT NULL,
+    description TEXT,
+    options JSON NOT NULL, -- Array of options: ["Option 1", "Option 2", ...]
+    created_by INT NOT NULL,
+    start_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    end_date DATETIME,
+    is_anonymous BOOLEAN DEFAULT TRUE,
+    allow_multiple_choice BOOLEAN DEFAULT FALSE,
+    category VARCHAR(50), -- GENERAL, EVENT, AMENITY, RULE_CHANGE, BUDGET
+    status VARCHAR(20) DEFAULT 'DRAFT', -- DRAFT, ACTIVE, CLOSED, CANCELLED
+    total_votes INT DEFAULT 0,
+    results JSON, -- {"Option 1": 10, "Option 2": 25, ...}
+    results_visible BOOLEAN DEFAULT FALSE,
+    created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (created_by) REFERENCES users(user_id),
+
+    INDEX idx_poll_status (status),
+    INDEX idx_poll_category (category),
+    INDEX idx_poll_end_date (end_date)
+);
+
+-- ============================================================================
+-- POLL VOTES TABLE
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS poll_votes (
+    vote_id INT PRIMARY KEY AUTO_INCREMENT,
+    poll_id INT NOT NULL,
+    user_id INT, -- NULL if anonymous
+    selected_option VARCHAR(500) NOT NULL,
+    voted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (poll_id) REFERENCES polls(poll_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL,
+
+    INDEX idx_vote_poll (poll_id),
+    INDEX idx_vote_user (user_id),
+
+    -- Prevent double voting (for non-anonymous polls)
+    UNIQUE KEY unique_vote (poll_id, user_id)
+);
+
+-- ============================================================================
+-- ANNOUNCEMENTS TABLE
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS announcements (
+    announcement_id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(200) NOT NULL,
+    message TEXT NOT NULL,
+    category VARCHAR(50), -- GENERAL, URGENT, MAINTENANCE, EVENT, RULE, SAFETY
+    priority VARCHAR(20) DEFAULT 'MEDIUM', -- LOW, MEDIUM, HIGH, CRITICAL
+    posted_by INT NOT NULL,
+    posted_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expiry_date DATETIME,
+    is_pinned BOOLEAN DEFAULT FALSE,
+    requires_acknowledgment BOOLEAN DEFAULT FALSE,
+    view_count INT DEFAULT 0,
+    acknowledgment_count INT DEFAULT 0,
+    attachments JSON, -- Array of attachment URLs
+    target_audience VARCHAR(50) DEFAULT 'ALL', -- ALL, OWNERS, TENANTS, COMMITTEE
+
+    FOREIGN KEY (posted_by) REFERENCES users(user_id),
+
+    INDEX idx_announcement_priority (priority),
+    INDEX idx_announcement_category (category),
+    INDEX idx_announcement_posted_date (posted_date),
+    INDEX idx_announcement_pinned (is_pinned)
+);
+
+-- ============================================================================
+-- ANNOUNCEMENT ACKNOWLEDGMENTS TABLE
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS announcement_acknowledgments (
+    acknowledgment_id INT PRIMARY KEY AUTO_INCREMENT,
+    announcement_id INT NOT NULL,
+    user_id INT NOT NULL,
+    acknowledged_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (announcement_id) REFERENCES announcements(announcement_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+
+    UNIQUE KEY unique_acknowledgment (announcement_id, user_id)
+);
+
+-- ============================================================================
+-- ACTIVITY LOG TABLE (for tracking user actions)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS activity_logs (
+    log_id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT,
+    action_type VARCHAR(50) NOT NULL, -- LOGIN, CREATE_EVENT, REGISTER, REPORT_ISSUE, etc.
+    action_description VARCHAR(500),
+    entity_type VARCHAR(50), -- EVENT, ISSUE, BOOKING, etc.
+    entity_id INT,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL,
+
+    INDEX idx_activity_user (user_id),
+    INDEX idx_activity_type (action_type),
+    INDEX idx_activity_date (created_at)
+);
+
+-- ============================================================================
+-- WAITLIST TABLE (for event registrations)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS event_waitlist (
+    waitlist_id INT PRIMARY KEY AUTO_INCREMENT,
+    event_id INT NOT NULL,
+    user_id INT NOT NULL,
+    position INT NOT NULL, -- Position in waitlist
+    added_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    notified BOOLEAN DEFAULT FALSE,
+    notified_date DATETIME,
+
+    FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+
+    UNIQUE KEY unique_waitlist_entry (event_id, user_id),
+    INDEX idx_waitlist_event (event_id),
+    INDEX idx_waitlist_position (event_id, position)
+);
+
+-- ============================================================================
+-- DOCUMENT MANAGEMENT TABLE (optional future feature)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS documents (
+    document_id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    category VARCHAR(50), -- MINUTES, BYLAWS, NOTICES, FINANCIAL, etc.
+    file_path VARCHAR(500) NOT NULL,
+    file_size INT,
+    file_type VARCHAR(50),
+    uploaded_by INT NOT NULL,
+    upload_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    version INT DEFAULT 1,
+    is_public BOOLEAN DEFAULT TRUE,
+    download_count INT DEFAULT 0,
+
+    FOREIGN KEY (uploaded_by) REFERENCES users(user_id),
+
+    INDEX idx_document_category (category),
+    INDEX idx_document_upload_date (upload_date)
+);
+
+-- ============================================================================
+-- VISITOR MANAGEMENT TABLE (optional future feature)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS visitors (
+    visitor_id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20),
+    vehicle_number VARCHAR(20),
+    purpose VARCHAR(200),
+    visiting_user_id INT NOT NULL,
+    check_in DATETIME,
+    check_out DATETIME,
+    pre_approved BOOLEAN DEFAULT FALSE,
+    pass_code VARCHAR(20),
+    created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (visiting_user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+
+    INDEX idx_visitor_user (visiting_user_id),
+    INDEX idx_visitor_date (check_in)
+);
+
+-- ============================================================================
+-- SAMPLE DATA INSERTS (for testing)
+-- ============================================================================
+
+-- Insert sample amenities
+INSERT INTO amenities (name, description, category, capacity, cost_per_hour, operating_hours)
+VALUES
+('Community Gym', 'Fully equipped fitness center', 'GYM', 20, 0.00, '06:00-22:00'),
+('Swimming Pool', 'Olympic size swimming pool', 'POOL', 30, 50.00, '06:00-20:00'),
+('Clubhouse', 'Main community hall for events', 'CLUBHOUSE', 100, 500.00, '08:00-23:00'),
+('Tennis Court', 'Professional tennis court', 'COURT', 4, 100.00, '06:00-21:00'),
+('Party Hall', 'Birthday parties and celebrations', 'HALL', 50, 300.00, '10:00-23:00');
+
+-- Insert sample poll
+INSERT INTO polls (question, options, created_by, category, status, results)
+VALUES
+('What time should yoga classes be scheduled?',
+ '["6:00 AM", "7:00 AM", "8:00 AM", "Evening 6:00 PM"]',
+ 1,
+ 'AMENITY',
+ 'ACTIVE',
+ '{"6:00 AM": 5, "7:00 AM": 12, "8:00 AM": 8, "Evening 6:00 PM": 15}');
+
+-- Insert sample announcement
+INSERT INTO announcements (title, message, category, priority, posted_by, is_pinned)
+VALUES
+('Water Supply Interruption',
+ 'Water supply will be interrupted on Sunday from 10 AM to 2 PM for maintenance work. Please store water in advance.',
+ 'MAINTENANCE',
+ 'HIGH',
+ 1,
+ TRUE);
+
+-- ============================================================================
+-- USEFUL VIEWS
+-- ============================================================================
+
+-- View for event statistics
+CREATE OR REPLACE VIEW event_statistics AS
+SELECT
+    e.event_id,
+    e.event_name,
+    e.event_date,
+    e.category,
+    e.capacity,
+    COUNT(DISTINCT r.user_id) as registered_count,
+    COALESCE(AVG(ef.rating), 0) as average_rating,
+    COUNT(DISTINCT ef.feedback_id) as feedback_count,
+    (COUNT(DISTINCT r.user_id) * 100.0 / e.capacity) as fill_rate
+FROM events e
+LEFT JOIN registrations r ON e.event_id = r.event_id
+LEFT JOIN event_feedback ef ON e.event_id = ef.event_id
+GROUP BY e.event_id;
+
+-- View for booking conflicts
+CREATE OR REPLACE VIEW booking_availability AS
+SELECT
+    a.amenity_id,
+    a.name,
+    ab.booking_date,
+    ab.start_time,
+    ab.end_time,
+    ab.status
+FROM amenities a
+LEFT JOIN amenity_bookings ab ON a.amenity_id = ab.amenity_id
+WHERE ab.status IN ('CONFIRMED', 'PENDING')
+ORDER BY a.amenity_id, ab.booking_date, ab.start_time;
+
+-- ============================================================================
+-- STORED PROCEDURES (optional)
+-- ============================================================================
+
+DELIMITER //
+
+-- Procedure to create recurring events
+CREATE PROCEDURE IF NOT EXISTS create_recurring_events(
+    IN base_event_id INT,
+    IN recurrence_count INT
+)
+BEGIN
+    DECLARE i INT DEFAULT 0;
+    DECLARE next_date DATE;
+    DECLARE base_date DATE;
+    DECLARE interval_days INT;
+    DECLARE rec_type VARCHAR(20);
+
+    -- Get base event details
+    SELECT event_date, recurrence_interval, recurrence_type
+    INTO base_date, interval_days, rec_type
+    FROM events WHERE event_id = base_event_id;
+
+    WHILE i < recurrence_count DO
+        SET i = i + 1;
+
+        -- Calculate next date based on recurrence type
+        IF rec_type = 'WEEKLY' THEN
+            SET next_date = DATE_ADD(base_date, INTERVAL (i * interval_days) WEEK);
+        ELSEIF rec_type = 'MONTHLY' THEN
+            SET next_date = DATE_ADD(base_date, INTERVAL (i * interval_days) MONTH);
+        ELSE
+            SET next_date = DATE_ADD(base_date, INTERVAL (i * interval_days) DAY);
+        END IF;
+
+        -- Create new event instance
+        INSERT INTO events (event_name, description, event_date, venue, capacity,
+                           organizer_id, category, status, parent_event_id, created_by, created_date)
+        SELECT event_name, description, next_date, venue, capacity,
+               organizer_id, category, 'UPCOMING', base_event_id, created_by, NOW()
+        FROM events WHERE event_id = base_event_id;
+    END WHILE;
+END //
+
+DELIMITER ;
+
+-- ============================================================================
+-- TRIGGERS (for automatic updates)
+-- ============================================================================
+
+-- Update event average rating when feedback is added
+DELIMITER //
+
+CREATE TRIGGER IF NOT EXISTS update_event_rating
+AFTER INSERT ON event_feedback
+FOR EACH ROW
+BEGIN
+    UPDATE events e
+    SET e.average_rating = (
+        SELECT AVG(rating)
+        FROM event_feedback
+        WHERE event_id = NEW.event_id
+    )
+    WHERE e.event_id = NEW.event_id;
+END //
+
+-- Update poll total votes
+CREATE TRIGGER IF NOT EXISTS update_poll_votes
+AFTER INSERT ON poll_votes
+FOR EACH ROW
+BEGIN
+    UPDATE polls
+    SET total_votes = total_votes + 1
+    WHERE poll_id = NEW.poll_id;
+END //
+
+-- Log activity when user registers for event
+CREATE TRIGGER IF NOT EXISTS log_event_registration
+AFTER INSERT ON registrations
+FOR EACH ROW
+BEGIN
+    INSERT INTO activity_logs (user_id, action_type, action_description, entity_type, entity_id)
+    VALUES (NEW.user_id, 'REGISTER_EVENT',
+            CONCAT('Registered for event ID: ', NEW.event_id),
+            'EVENT', NEW.event_id);
+END //
+
+DELIMITER ;
+
+-- ============================================================================
+-- INDEXES FOR PERFORMANCE
+-- ============================================================================
+
+-- Additional indexes for better query performance
+CREATE INDEX IF NOT EXISTS idx_events_date_status ON events(event_date, status);
+CREATE INDEX IF NOT EXISTS idx_events_category ON events(category);
+CREATE INDEX IF NOT EXISTS idx_registrations_user_event ON registrations(user_id, event_id);
+
+-- ============================================================================
+-- END OF SCHEMA
+-- ============================================================================
+
+-- Display tables
+SHOW TABLES;
+
+-- Display structure of new tables
+DESCRIBE event_feedback;
+DESCRIBE amenities;
+DESCRIBE amenity_bookings;
+DESCRIBE polls;
+DESCRIBE announcements;
