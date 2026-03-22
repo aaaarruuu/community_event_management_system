@@ -126,8 +126,8 @@ public class LoginScreen extends JFrame {
         // Right: window control buttons
         JPanel controls = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 10));
         controls.setOpaque(false);
-        controls.add(winBtn("–", new Color(245,158,11), e -> setState(JFrame.ICONIFIED)));
-        controls.add(winBtn("⛶", new Color(16,185,129), e -> toggleMaximize()));
+        controls.add(winBtn("–", new Color(250, 236, 11), e -> setState(JFrame.ICONIFIED)));
+        controls.add(winBtn("⛶", new Color(4, 248, 108), e -> toggleMaximize()));
         controls.add(winBtn("X", new Color(239,68,68),  e -> System.exit(0)));
 
         bar.add(leftSide, BorderLayout.WEST);
@@ -407,7 +407,7 @@ public class LoginScreen extends JFrame {
         loginSub.setForeground(TEXT2);
         loginSub.setAlignmentX(CENTER_ALIGNMENT);
 
-        col.add(Box.createVerticalStrut(4));
+        col.add(Box.createVerticalStrut(10));
         col.add(lockIcon);
         col.add(Box.createVerticalStrut(12));
         col.add(loginTitle);
@@ -417,7 +417,7 @@ public class LoginScreen extends JFrame {
 
         // ── USERNAME ──────────────────────────────────────────────────────────
         JLabel userLbl = inputLabel("USERNAME");
-        userLbl.setAlignmentX(LEFT_ALIGNMENT);
+        userLbl.setAlignmentX(CENTER_ALIGNMENT);
         col.add(userLbl);
         col.add(Box.createVerticalStrut(7));
 
@@ -432,7 +432,7 @@ public class LoginScreen extends JFrame {
 
         // ── PASSWORD ──────────────────────────────────────────────────────────
         JLabel passLbl = inputLabel("PASSWORD");
-        passLbl.setAlignmentX(LEFT_ALIGNMENT);
+        passLbl.setAlignmentX(CENTER_ALIGNMENT);
         col.add(passLbl);
         col.add(Box.createVerticalStrut(7));
 
