@@ -2,10 +2,6 @@ package models;
 
 import java.util.Date;
 
-/**
- * Announcement Model for Community Notices
- * VIT Bhopal MCA 2026 - Version 2.0
- */
 public class Announcement {
     private int announcementId;
     private String title;

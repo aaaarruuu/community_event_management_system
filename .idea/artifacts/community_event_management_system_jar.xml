@@ -1,0 +1,10 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="community_event_management_system:jar">
+    <output-path>$PROJECT_DIR$/artifacts/community_event_management_system_jar</output-path>
+    <root id="archive" name="community_event_management_system.jar">
+      <element id="module-output" name="community_event_management_system" />
+      <element id="library" level="project" name="mysql-connector-j-9.5.1" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../My_BANK/Driver/mysql-connector-j-9.5.0/mysql-connector-j-9.5.0/mysql-connector-j-9.5.0.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>
